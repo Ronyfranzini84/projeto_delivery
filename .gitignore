@@ -1,7 +1,8 @@
-.venv/
 venv/
+.idea/
+.venv/
 __pycache__/
 *.pyc
 .env
 .vscode/
-.idea/
+banco.db

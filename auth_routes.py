@@ -1,10 +1,25 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from models import Usuario
 from dependencies import pegar_sessao
+from main import bcrypt_context
+from schemas import UsuarioSchema, LoginSchema
+from sqlalchemy.orm import Session
 
 auth_router = APIRouter(prefix="/auth", tags=["auth"])
 
-@auth_router.post("/")
+def criar_token(id_usuario):
+    token = f"fnsyubf7s8fs9{id_usuario}"
+    return token
+
+def autenticar_usuario(email, senha, session):
+    usuario = session.query(Usuario).filter_by(email=email).first()
+    if not usuario:
+        return False
+    elif not bcrypt_context.verify(senha, usuario.senha):
+        return False    
+    return usuario
+
+@auth_router.get("/")
 async def home():
     """
     Essa é a rota padrão de autenticação do nosso sistema.
@@ -12,16 +27,26 @@ async def home():
     return {"mensagem": "Você acessou a rota de autenticação!"}
 
 @auth_router.post("/criar_conta")
-async def criar_conta(email: str, senha: str, nome: str, session=Depends(pegar_sessao)):
-    usuario = session.query(Usuario).filter_by(Usuario.email==email).first()
-    if usuario:
+async def criar_conta(usuario_schema: UsuarioSchema, session=Depends(pegar_sessao)):
+    usuario_existente = session.query(Usuario).filter_by(email=usuario_schema.email).first()
+    if usuario_existente:
         # já existe um usuario com esse email
-        return {"mensagem": "Já existe um usuário com esse email!"}
+        raise HTTPException(status_code=400, detail="Já existe um usuário com esse email!")
     else:
-        # criar um novo usuario
-        novo_usuario = Usuario(nome, email, senha)
+        senha_criptografada = bcrypt_context.hash(usuario_schema.senha)
+        novo_usuario = Usuario(usuario_schema.nome, usuario_schema.email, senha_criptografada, usuario_schema.ativo, usuario_schema.admin)
         session.add(novo_usuario)
         session.commit()
-        return {"mensagem": "Usuário cadastrado com sucesso!"}  
+        return {"mensagem": f"Usuário cadastrado com sucesso: {usuario_schema.email}!"}  
 
-    
+# login -> email e senha -> token JWT (Json Web Token) ahuyba1564687442131Sv
+@auth_router.post("/login")
+async def login(login_schema: LoginSchema, session: Session = Depends(pegar_sessao)):
+    usuario = autenticar_usuario(login_schema.email, login_schema.senha, session)
+    if not usuario:
+        raise HTTPException(status_code=400, detail="Email ou senha inválidos!")
+    else:
+        access_token = criar_token(usuario.id)
+        return {"access_token": access_token,
+                 "token_type": "Bearer"
+                 }

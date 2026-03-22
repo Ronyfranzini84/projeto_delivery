@@ -24,7 +24,7 @@ except ValueError as exc:
 app = FastAPI()
 
 bcrypt_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="login-form")
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/login-form")
 from auth_routes import auth_router
 from order_routes import order_router
 

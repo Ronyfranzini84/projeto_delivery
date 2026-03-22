@@ -15,12 +15,15 @@ def pegar_sessao():
         session.close()
 
 
-def verificar_token(token: str = Depends(oauth2_scheme), session: Session = Depends(pegar_sessao)):
+def verificar_token(token: str = Depends(oauth2_scheme), session: Session = Depends(pegar_sessao), tipo_token_esperado: str = "access"):
     try:
         dic_info = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
         sub = dic_info.get("sub")
+        tipo_token = dic_info.get("token_type", "access")
         if sub is None:
             raise HTTPException(status_code=401, detail="Token inválido: usuário não identificado.")
+        if tipo_token != tipo_token_esperado:
+            raise HTTPException(status_code=401, detail="Tipo de token inválido para este endpoint.")
         id_usuario = int(sub)
     except (JWTError, ValueError, TypeError):
         raise HTTPException(status_code=401, detail="Acesso negado, verifique a validade do token!")
@@ -30,3 +33,11 @@ def verificar_token(token: str = Depends(oauth2_scheme), session: Session = Depe
     if not usuario:
         raise HTTPException(status_code=401, detail="Acesso inválido!")
     return usuario
+
+
+def verificar_token_acesso(token: str = Depends(oauth2_scheme), session: Session = Depends(pegar_sessao)):
+    return verificar_token(token=token, session=session, tipo_token_esperado="access")
+
+
+def verificar_token_refresh(token: str = Depends(oauth2_scheme), session: Session = Depends(pegar_sessao)):
+    return verificar_token(token=token, session=session, tipo_token_esperado="refresh")
